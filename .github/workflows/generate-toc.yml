@@ -1,13 +1,44 @@
-name: Push Workflow
+name: Generate Table of Contents
 
 on:
   push:
     branches:
-      - main
+      - '**' # Trigger on push to any branch
 
 jobs:
-  build:
+  generate-toc:
+    name: Generate Markdown TOC
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install gh-md-toc
+        run: |
+          sudo curl -s https://raw.githubusercontent.com/ekalinin/github-markdown-toc/master/gh-md-toc -o /usr/local/bin/gh-md-toc
+          sudo chmod +x /usr/local/bin/gh-md-toc
+
+      # Ensure markers are present and generate TOC
+      - name: Ensure markers and generate TOC
+        run: |
+          for file in $(find . -name "*.md"); do
+            # Add markers if they are missing
+            if ! grep -q "<!--ts-->" "$file"; then
+              echo -e "<!--ts-->\n\n<!--te-->\n$(cat $file)" > "$file"
+            fi
+
+            # Generate the TOC
+            gh-md-toc --insert "$file"
+          done
+
+      # Commit and push changes back to the branch
+      - name: Commit and push changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "chore: Update TOC in Markdown files"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
